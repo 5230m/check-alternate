@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Alternate Tag Checker</title>
+  <style>
+    /* ── Binance Design System tokens ── */
+    :root {
+      /* Brand */
+      --bn-yellow:       #F0B90B;
+      --bn-gold:         #FFD000;
+      --bn-yellow-hover: #1EAEDB;   /* Focus Blue — hover state */
+      --bn-yellow-active:#D0980B;
+
+      /* Surfaces (dark section treatment) */
+      --bn-page:         #222126;
+      --bn-card:         #2B2F36;
+      --bn-card-deep:    #1E2026;
+      --bn-overlay:      #1A1B1E;
+
+      /* Text on dark */
+      --bn-text:         #EAECEF;
+      --bn-text-sub:     #848E9C;
+      --bn-text-muted:   #5E6673;
+
+      /* Borders */
+      --bn-border:       #3D3E43;
+      --bn-border-light: #E6E8EA;
+
+      /* Semantic */
+      --bn-green:        #0ECB81;
+      --bn-red:          #F6465D;
+      --bn-ink:          #1E2026;
+
+      /* Spacing (base 8px) */
+      --sp-1:  4px;
+      --sp-2:  8px;
+      --sp-3:  12px;
+      --sp-4:  16px;
+      --sp-5:  20px;
+      --sp-6:  24px;
+      --sp-7:  32px;
+      --sp-8:  48px;
+
+      /* Radius */
+      --r-sm:   6px;    /* form buttons */
+      --r-md:   8px;    /* inputs, data cards */
+      --r-lg:   12px;   /* content cards */
+      --r-pill: 50px;   /* CTA pills */
+
+      /* Shadow */
+      --sh-card:  rgba(32,32,37,0.05) 0px 3px 5px 0px;
+      --sh-hover: rgba(8,8,8,0.05) 0px 3px 5px 5px;
+      --sh-pill:  rgb(153,153,153) 0px 2px 10px -3px;
+
+      /* Transition */
+      --tr: 200ms ease;
+    }
+
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bn-page);
+      color: var(--bn-text);
+      font-family: 'BinancePlex', Arial, sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--bn-yellow); text-decoration: none; }
+    a:hover { color: var(--bn-yellow-hover); }
+
+    /* ── Page header ── */
+    .page-header {
+      background: var(--bn-card-deep);
+      border-bottom: 1px solid var(--bn-border);
+      padding: var(--sp-3) var(--sp-7);
+      display: flex;
+      align-items: center;
+      gap: var(--sp-3);
+      position: sticky;
+      top: 0;
+      z-index: 200;
+    }
+
+    .header-mark {
+      width: 28px;
+      height: 28px;
+      background: var(--bn-yellow);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--bn-ink);
+      flex-shrink: 0;
+    }
+
+    .header-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--bn-text);
+    }
+
+    .header-desc {
+      font-size: 12px;
+      color: var(--bn-text-sub);
+      margin-left: var(--sp-1);
+    }
+
+    /* ── Layout ── */
+    .tool-layout {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: var(--sp-6) var(--sp-7);
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-5);
+      padding-bottom: 180px;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--bn-card);
+      border: 1px solid var(--bn-border);
+      border-radius: var(--r-lg);
+      box-shadow: var(--sh-card);
+      overflow: hidden;
+    }
+
+    .card-header {
+      padding: var(--sp-3) var(--sp-5);
+      border-bottom: 1px solid var(--bn-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bn-card-deep);
+    }
+
+    .card-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--bn-text-sub);
+    }
+
+    .card-meta {
+      font-size: 12px;
+      color: var(--bn-text-sub);
+    }
+
+    .card-body { padding: var(--sp-5); }
+
+    /* ── Textarea ── */
+    .textarea {
+      width: 100%;
+      background: var(--bn-card-deep);
+      border: 1px solid var(--bn-border);
+      border-radius: var(--r-md);
+      color: var(--bn-text);
+      font-family: 'Consolas', 'Fira Code', monospace;
+      font-size: 13px;
+      font-weight: 400;
+      padding: var(--sp-3);
+      outline: none;
+      resize: vertical;
+      min-height: 140px;
+      line-height: 1.8;
+      transition: border-color var(--tr);
+    }
+
+    .textarea:focus {
+      border-color: var(--bn-yellow);
+      box-shadow: 0 0 0 2px rgba(240,185,11,0.15);
+    }
+
+    .textarea::placeholder { color: var(--bn-text-muted); }
+    .textarea:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--sp-2);
+      font-family: 'BinancePlex', Arial, sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.16px;
+      padding: var(--sp-2) var(--sp-5);
+      border-radius: var(--r-sm);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: background var(--tr), color var(--tr), border-color var(--tr);
+      white-space: nowrap;
+    }
+
+    .btn:disabled { background: #3D3E43; color: var(--bn-text-sub); border-color: transparent; cursor: not-allowed; }
+
+    /* Primary — yellow fill */
+    .btn-primary { background: var(--bn-yellow); color: var(--bn-ink); border-color: var(--bn-yellow); }
+    .btn-primary:hover:not(:disabled) { background: var(--bn-yellow-hover); color: #fff; border-color: var(--bn-yellow-hover); }
+    .btn-primary:active:not(:disabled) { background: var(--bn-yellow-active); border-color: var(--bn-yellow-active); }
+
+    /* Outline */
+    .btn-outline { background: transparent; color: var(--bn-text); border-color: var(--bn-border); }
+    .btn-outline:hover:not(:disabled) { border-color: var(--bn-yellow); color: var(--bn-yellow); }
+
+    /* Danger */
+    .btn-danger { background: var(--bn-red); color: #fff; border-color: var(--bn-red); }
+    .btn-danger:hover:not(:disabled) { opacity: 0.88; }
+
+    /* ── Action bar ── */
+    .action-bar {
+      display: flex;
+      gap: var(--sp-2);
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: var(--sp-4);
+    }
+
+    /* ── Progress ── */
+    .progress-wrap {
+      margin-top: var(--sp-4);
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-2);
+    }
+
+    .progress-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--bn-text-sub);
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 4px;
+      background: var(--bn-border);
+      border-radius: 100px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--bn-yellow);
+      border-radius: 100px;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    .progress-fill.done { background: var(--bn-green); }
+
+    /* ── Stat grid ── */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: var(--sp-4);
+    }
+
+    .stat-card {
+      background: var(--bn-card-deep);
+      border: 1px solid var(--bn-border);
+      border-radius: var(--r-md);
+      padding: var(--sp-4) var(--sp-5);
+    }
+
+    .stat-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--bn-text-sub);
+      margin-bottom: var(--sp-2);
+    }
+
+    .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--bn-text);
+    }
+
+    .stat-card.yellow .stat-value { color: var(--bn-yellow); }
+    .stat-card.green  .stat-value { color: var(--bn-green);  }
+    .stat-card.red    .stat-value { color: var(--bn-red);    }
+    .stat-card.slate  .stat-value { color: var(--bn-text-sub); }
+
+    /* ── Table ── */
+    .table-wrapper { overflow-x: auto; }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: 'Consolas', 'Fira Code', monospace;
+      font-size: 13px;
+    }
+
+    .table th {
+      text-align: left;
+      padding: var(--sp-2) var(--sp-4);
+      font-family: 'BinancePlex', Arial, sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--bn-text-sub);
+      border-bottom: 1px solid var(--bn-border);
+      background: var(--bn-card-deep);
+      white-space: nowrap;
+    }
+
+    .table td {
+      padding: var(--sp-3) var(--sp-4);
+      border-bottom: 1px solid var(--bn-border);
+      color: var(--bn-text);
+      vertical-align: middle;
+      word-break: break-all;
+    }
+
+    .table tr:hover td { background: rgba(255,255,255,0.03); }
+    .table tr:last-child td { border-bottom: none; }
+
+    .table-empty {
+      text-align: center;
+      padding: var(--sp-8);
+      color: var(--bn-text-sub);
+      font-family: 'BinancePlex', Arial, sans-serif;
+      font-size: 14px;
+    }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: 'BinancePlex', Arial, sans-serif;
+      letter-spacing: 0.5px;
+      padding: 2px var(--sp-3);
+      border-radius: var(--r-sm);
+      border: 1px solid transparent;
+    }
+
+    .badge-hreflang  { background: rgba(240,185,11,0.12); color: var(--bn-yellow);  border-color: rgba(240,185,11,0.3);  }
+    .badge-xdefault  { background: rgba(30,174,219,0.12); color: #1EAEDB;           border-color: rgba(30,174,219,0.3);  }
+    .badge-media     { background: rgba(14,203,129,0.12); color: var(--bn-green);   border-color: rgba(14,203,129,0.3);  }
+    .badge-error     { background: rgba(246,70,93,0.12);  color: var(--bn-red);     border-color: rgba(246,70,93,0.3);   }
+    .badge-none      { background: rgba(132,142,156,0.12);color: var(--bn-text-sub);border-color: rgba(132,142,156,0.2); }
+
+    /* ── Log Panel ── */
+    .log-panel {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: var(--bn-overlay);
+      border-top: 1px solid var(--bn-border);
+      font-family: 'Consolas', 'Fira Code', monospace;
+      font-size: 11px;
+      z-index: 500;
+      height: 34px;
+      overflow: hidden;
+      transition: height var(--tr);
+    }
+
+    .log-panel.expanded { height: 190px; }
+
+    .log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 var(--sp-5);
+      height: 34px;
+      cursor: pointer;
+      user-select: none;
+      background: var(--bn-card-deep);
+      border-bottom: 1px solid var(--bn-border);
+    }
+
+    .log-header-left {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-2);
+    }
+
+    .log-title {
+      font-family: 'BinancePlex', Arial, sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--bn-text-sub);
+    }
+
+    .log-badge {
+      background: var(--bn-border);
+      border-radius: 100px;
+      padding: 1px var(--sp-2);
+      font-size: 11px;
+      color: var(--bn-text-sub);
+    }
+
+    .log-controls {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-2);
+    }
+
+    .log-btn {
+      background: transparent;
+      border: 1px solid var(--bn-border);
+      border-radius: var(--r-sm);
+      color: var(--bn-text-sub);
+      font-size: 11px;
+      padding: 1px var(--sp-2);
+      cursor: pointer;
+      font-family: 'BinancePlex', Arial, sans-serif;
+      transition: border-color var(--tr), color var(--tr);
+    }
+
+    .log-btn:hover { border-color: var(--bn-yellow); color: var(--bn-yellow); }
+
+    .log-arrow { color: var(--bn-text-sub); font-size: 10px; margin-left: var(--sp-2); }
+
+    .log-entries {
+      height: calc(190px - 34px);
+      overflow-y: auto;
+      padding: var(--sp-2) var(--sp-5);
+    }
+
+    .log-entries::-webkit-scrollbar { width: 4px; }
+    .log-entries::-webkit-scrollbar-thumb { background: var(--bn-border); border-radius: 2px; }
+
+    .log-entry {
+      padding: 2px 0;
+      line-height: 1.8;
+      border-bottom: 1px solid rgba(61,62,67,0.5);
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .log-time { color: var(--bn-text-muted); }
+
+    .log-info    { color: #60a5fa; }
+    .log-warn    { color: #F0B90B; }
+    .log-error   { color: #F6465D; }
+    .log-success { color: #0ECB81; }
+
+    /* ── Utilities ── */
+    .hidden { display: none !important; }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--bn-border); border-radius: 3px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      .tool-layout  { padding: var(--sp-4) var(--sp-4); }
+      .page-header  { padding: var(--sp-3) var(--sp-4); }
+      .header-desc  { display: none; }
+      .stat-grid    { grid-template-columns: 1fr 1fr; }
+      .action-bar   { flex-direction: column; align-items: stretch; }
+      .action-bar .btn { width: 100%; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Page header -->
+<header class="page-header">
+  <div class="header-mark">A</div>
+  <span class="header-title">Alternate Tag Checker</span>
+  <span class="header-desc">— kiểm tra hreflang, media mobile, x-default trong &lt;head&gt;</span>
+</header>
+
+<div class="tool-layout">
+
+  <!-- Input card -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-label">Danh sách URL</span>
+      <span class="card-meta" id="urlCounter">0 URLs</span>
+    </div>
+    <div class="card-body">
+      <textarea
+        id="urlInput"
+        class="textarea"
+        placeholder="Nhập mỗi URL một dòng, tối đa 500 URLs&#10;https://example.com&#10;https://another-site.com/vi/"
+      ></textarea>
+
+      <div class="action-bar">
+        <button id="btnStart"  class="btn btn-primary">▶ Start</button>
+        <button id="btnPause"  class="btn btn-outline" disabled>⏸ Pause</button>
+        <button id="btnCancel" class="btn btn-danger"  disabled>✕ Cancel</button>
+        <button id="btnSample" class="btn btn-outline">Load sample</button>
+        <button id="btnExport" class="btn btn-outline" disabled>↓ Export CSV</button>
+      </div>
+
+      <div class="progress-wrap hidden" id="progressWrap">
+        <div class="progress-row">
+          <span id="progressLabel">Đang xử lý…</span>
+          <span id="progressPct">0%</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary (ẩn đến khi hoàn thành) -->
+  <div class="card hidden" id="summaryCard">
+    <div class="card-header">
+      <span class="card-label">Tổng kết</span>
+    </div>
+    <div class="card-body">
+      <div class="stat-grid">
+        <div class="stat-card yellow">
+          <div class="stat-label">URLs đã check</div>
+          <div class="stat-value" id="statUrls">0</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-label">Alternates tìm thấy</div>
+          <div class="stat-value" id="statFound">0</div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-label">Lỗi</div>
+          <div class="stat-value" id="statErrors">0</div>
+        </div>
+        <div class="stat-card slate">
+          <div class="stat-label">Thời gian</div>
+          <div class="stat-value" id="statTime">0s</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results card -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-label">Kết quả</span>
+      <span class="card-meta" id="resultCount">—</span>
+    </div>
+    <div class="table-wrapper">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>URL gốc</th>
+            <th>Loại</th>
+            <th>Giá trị</th>
+            <th>URL Alternate</th>
+          </tr>
+        </thead>
+        <tbody id="resultsBody">
+          <tr>
+            <td colspan="4" class="table-empty">Chưa có kết quả — nhập URL và nhấn Start.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- Log panel (fixed bottom) -->
+<div class="log-panel" id="logPanel">
+  <div class="log-header" id="logToggle">
+    <div class="log-header-left">
+      <span class="log-title">Logs</span>
+      <span class="log-badge" id="logCount">0</span>
+    </div>
+    <div class="log-controls" id="logControls">
+      <button class="log-btn" id="btnCopyLogs">Copy</button>
+      <button class="log-btn" id="btnClearLogs">Clear</button>
+      <span class="log-arrow" id="logArrow">▲</span>
+    </div>
+  </div>
+  <div class="log-entries" id="logEntries"></div>
+</div>
+
+<script>
+/* ── Constants ── */
+const MAX_CONCURRENT = 5;
+const BATCH_DELAY_MS = 500;
+const TIMEOUT_MS     = 10000;
+const MAX_RETRIES    = 3;
+const MAX_URLS       = 500;
+const RETRY_429_MS   = 5000;
+
+const API_BASE = window.location.hostname === 'localhost'
+  ? 'http://localhost:8000'
+  : 'https://api.hanax.ink';
+
+/* ── State ── */
+let isPaused    = false;
+let isCancelled = false;
+let isRunning   = false;
+let results     = [];
+
+/* ── Logger ── */
+const Logger = {
+  _entries: [],
+
+  // Ghi log vào panel và console
+  log(level, action, message) {
+    const time = new Date().toLocaleTimeString('vi-VN');
+    this._entries.push({ time, level, action, message });
+    this._render({ time, level, action, message });
+    console[level === 'error' ? 'error' : 'log'](
+      `[${time}] [${level.toUpperCase()}] [${action}]`, message
+    );
+  },
+  info   (action, msg) { this.log('info',    action, msg); },
+  warn   (action, msg) { this.log('warn',    action, msg); },
+  error  (action, msg) { this.log('error',   action, msg); },
+  success(action, msg) { this.log('success', action, msg); },
+
+  // Thêm dòng log vào DOM
+  _render({ time, level, action, message }) {
+    const el = document.createElement('div');
+    el.className = 'log-entry';
+    const lvlClass = level === 'success' ? 'log-success'
+      : level === 'warn'  ? 'log-warn'
+      : level === 'error' ? 'log-error'
+      : 'log-info';
+    el.innerHTML =
+      `<span class="log-time">[${time}]</span> ` +
+      `<span class="${lvlClass}">${level.toUpperCase().padEnd(7, '\u00a0')}</span>` +
+      ` [${escHtml(action)}] ${escHtml(String(message))}`;
+    const container = document.getElementById('logEntries');
+    container.appendChild(el);
+    container.scrollTop = container.scrollHeight;
+    document.getElementById('logCount').textContent = this._entries.length;
+  },
+
+  // Xóa toàn bộ log
+  clear() {
+    this._entries = [];
+    document.getElementById('logEntries').innerHTML = '';
+    document.getElementById('logCount').textContent = '0';
+  },
+
+  // Xuất log thành text để copy
+  toText() {
+    return this._entries
+      .map(e => `[${e.time}] ${e.level.toUpperCase().padEnd(7)} [${e.action}] ${e.message}`)
+      .join('\n');
+  },
+};
+
+/* ── Helpers ── */
+// Escape HTML để tránh XSS
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// Chờ n milliseconds
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// Cập nhật progress bar + label
+function updateProgress(done, total) {
+  const pct = total > 0 ? Math.min(100, Math.round(done / total * 100)) : 0;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressLabel').textContent =
+    `Đang xử lý ${Math.min(done, total)}/${total}`;
+  document.getElementById('progressPct').textContent = pct + '%';
+}
+
+// Bật/tắt trạng thái nút theo running state
+function setButtonState(running) {
+  document.getElementById('btnStart') .disabled = running;
+  document.getElementById('btnPause') .disabled = !running;
+  document.getElementById('btnCancel').disabled = !running;
+  document.getElementById('urlInput') .disabled = running;
+}
+
+/* ── Fetch HTML qua proxy backend ── */
+async function fetchHtml(url, attempt = 0) {
+  const ctrl = new AbortController();
+  const tid  = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+  try {
+    const res = await fetch(
+      `${API_BASE}/fetch?url=${encodeURIComponent(url)}`,
+      { signal: ctrl.signal }
+    );
+    clearTimeout(tid);
+
+    if (res.status === 429) {
+      Logger.warn('RETRY', `${url} → 429, đợi ${RETRY_429_MS / 1000}s`);
+      await sleep(RETRY_429_MS);
+      if (attempt < MAX_RETRIES) return fetchHtml(url, attempt + 1);
+      throw new Error('429 Too Many Requests');
+    }
+    if (res.status >= 500 && attempt < MAX_RETRIES) {
+      Logger.warn('RETRY', `${url} → ${res.status}, lần ${attempt + 1}/${MAX_RETRIES}`);
+      await sleep(1000 * Math.pow(2, attempt));
+      return fetchHtml(url, attempt + 1);
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.text();
+
+  } catch (err) {
+    clearTimeout(tid);
+    if (err.name === 'AbortError') {
+      if (attempt < MAX_RETRIES) {
+        Logger.warn('RETRY', `${url} timeout, lần ${attempt + 1}/${MAX_RETRIES}`);
+        await sleep(1000 * Math.pow(2, attempt));
+        return fetchHtml(url, attempt + 1);
+      }
+      throw new Error('Timeout sau 3 lần thử');
+    }
+    if (attempt < MAX_RETRIES && err.message !== '429 Too Many Requests') {
+      Logger.warn('RETRY', `${url} lỗi network, lần ${attempt + 1}/${MAX_RETRIES}`);
+      await sleep(1000 * Math.pow(2, attempt));
+      return fetchHtml(url, attempt + 1);
+    }
+    throw err;
+  }
+}
+
+/* ── Lấy giá trị một attribute từ chuỗi HTML attrs ── */
+function getAttr(attrs, name) {
+  const re = new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s/>]+))`, 'i');
+  const m  = attrs.match(re);
+  if (!m) return null;
+  return (m[1] !== undefined ? m[1] : m[2] !== undefined ? m[2] : m[3]).trim();
+}
+
+/* ── Parse alternate tags từ HTML của một URL ── */
+function parseAlternateTags(html, sourceUrl) {
+  const tags = [];
+  const headMatch = html.match(/<head[\s\S]*?<\/head>/i);
+  const head = headMatch ? headMatch[0] : html;
+
+  const linkRe = /<link\s([^>]+?)(?:\s*\/?>)/gi;
+  let m;
+  while ((m = linkRe.exec(head)) !== null) {
+    const attrs = m[1];
+    const rel   = getAttr(attrs, 'rel');
+    if (!rel || rel.toLowerCase() !== 'alternate') continue;
+
+    const href     = getAttr(attrs, 'href') || '';
+    const hreflang = getAttr(attrs, 'hreflang');
+    const media    = getAttr(attrs, 'media');
+
+    if (hreflang) {
+      const type = hreflang.toLowerCase() === 'x-default' ? 'x-default' : 'hreflang';
+      tags.push({ url: sourceUrl, type, value: hreflang, altUrl: href });
+    } else if (media) {
+      tags.push({ url: sourceUrl, type: 'media', value: media, altUrl: href });
+    }
+  }
+  return tags;
+}
+
+/* ── Kiểm tra một URL, lưu kết quả vào mảng results ── */
+async function checkUrl(url) {
+  const t0 = Date.now();
+  try {
+    const html = await fetchHtml(url);
+    const tags  = parseAlternateTags(html, url);
+    const ms    = Date.now() - t0;
+    Logger.info('REQUEST', `${url} → ${tags.length} alternate tags (${ms}ms)`);
+    if (tags.length === 0) {
+      results.push({ url, type: '—', value: '—', altUrl: '(không tìm thấy)' });
+    } else {
+      results.push(...tags);
+    }
+  } catch (err) {
+    Logger.error('FAILED', `${url} → ${err.message}`);
+    results.push({ url, type: 'ERROR', value: err.message, altUrl: '—' });
+  }
+}
+
+/* ── Xử lý batch URL với pause/cancel ── */
+async function processBatch(urls, batchSize = MAX_CONCURRENT) {
+  for (let i = 0; i < urls.length; i += batchSize) {
+    if (isCancelled) break;
+    while (isPaused && !isCancelled) await sleep(200);
+    if (isCancelled) break;
+
+    const batch = urls.slice(i, i + batchSize);
+    await Promise.all(batch.map(u => checkUrl(u)));
+    updateProgress(i + batchSize, urls.length);
+    renderResults();
+    if (i + batchSize < urls.length) await sleep(BATCH_DELAY_MS);
+  }
+}
+
+/* ── Render badge HTML cho từng loại alternate ── */
+function typeBadge(type) {
+  const map = {
+    'hreflang': '<span class="badge badge-hreflang">hreflang</span>',
+    'x-default':'<span class="badge badge-xdefault">x-default</span>',
+    'media':    '<span class="badge badge-media">media</span>',
+    'ERROR':    '<span class="badge badge-error">ERROR</span>',
+    '—':        '<span class="badge badge-none">—</span>',
+  };
+  return map[type] || `<span class="badge badge-none">${escHtml(type)}</span>`;
+}
+
+/* ── Vẽ lại bảng kết quả từ mảng results ── */
+function renderResults() {
+  const tbody = document.getElementById('resultsBody');
+  document.getElementById('resultCount').textContent =
+    results.length > 0 ? `${results.length} dòng` : '—';
+
+  if (results.length === 0) {
+    tbody.innerHTML =
+      '<tr><td colspan="4" class="table-empty">Chưa có kết quả.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = results.map(r => {
+    const isPlain = r.altUrl === '—' || r.altUrl === '(không tìm thấy)';
+    const altCell = isPlain
+      ? `<span style="color:var(--bn-text-sub)">${escHtml(r.altUrl)}</span>`
+      : `<a href="${escHtml(r.altUrl)}" target="_blank" rel="noopener">${escHtml(r.altUrl)}</a>`;
+
+    return `<tr>
+      <td>${escHtml(r.url)}</td>
+      <td>${typeBadge(r.type)}</td>
+      <td>${escHtml(r.value)}</td>
+      <td>${altCell}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ── Hiển thị summary sau khi hoàn thành ── */
+function showSummary(totalUrls, startMs) {
+  const elapsed = ((Date.now() - startMs) / 1000).toFixed(1);
+  const found   = results.filter(r => r.type !== 'ERROR' && r.type !== '—').length;
+  const errors  = results.filter(r => r.type === 'ERROR').length;
+
+  document.getElementById('statUrls').textContent   = totalUrls;
+  document.getElementById('statFound').textContent  = found;
+  document.getElementById('statErrors').textContent = errors;
+  document.getElementById('statTime').textContent   = elapsed + 's';
+  document.getElementById('summaryCard').classList.remove('hidden');
+
+  Logger.success('DONE',
+    `Hoàn thành: ${totalUrls} URLs, ${found} alternates, ${errors} lỗi, ${elapsed}s`);
+}
+
+/* ── Xuất kết quả ra file CSV ── */
+function exportCsv() {
+  const header = 'URL gốc,Loại alternate,Giá trị,URL alternate\n';
+  const rows = results
+    .map(r => [r.url, r.type, r.value, r.altUrl]
+      .map(v => `"${String(v).replace(/"/g, '""')}"`)
+      .join(','))
+    .join('\n');
+  const blob = new Blob(['\uFEFF' + header + rows], { type: 'text/csv;charset=utf-8;' });
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = `alternate-tags-${Date.now()}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  Logger.info('EXPORT', `Xuất ${results.length} dòng ra CSV`);
+}
+
+/* ── Handler nút Start ── */
+async function handleStart() {
+  const raw = document.getElementById('urlInput').value.trim();
+  if (!raw) { alert('Vui lòng nhập ít nhất một URL.'); return; }
+
+  const urls = raw.split('\n').map(u => u.trim()).filter(Boolean);
+  if (urls.length > MAX_URLS) {
+    alert(`Tối đa ${MAX_URLS} URLs mỗi lần. Hiện tại: ${urls.length}.`);
+    return;
+  }
+
+  results     = [];
+  isPaused    = false;
+  isCancelled = false;
+  isRunning   = true;
+
+  document.getElementById('summaryCard').classList.add('hidden');
+  document.getElementById('progressWrap').classList.remove('hidden');
+  document.getElementById('progressFill').classList.remove('done');
+  document.getElementById('btnExport').disabled = true;
+  setButtonState(true);
+  renderResults();
+
+  const startMs = Date.now();
+  Logger.info('BATCH_START',
+    `Bắt đầu xử lý ${urls.length} URLs, batch ${MAX_CONCURRENT}`);
+
+  await processBatch(urls);
+
+  isRunning = false;
+  setButtonState(false);
+  document.getElementById('btnPause').textContent = '⏸ Pause';
+
+  if (!isCancelled) {
+    document.getElementById('progressFill').style.width = '100%';
+    document.getElementById('progressFill').classList.add('done');
+    document.getElementById('progressLabel').textContent = 'Hoàn thành.';
+    document.getElementById('progressPct').textContent   = '100%';
+    showSummary(urls.length, startMs);
+  } else {
+    document.getElementById('progressLabel').textContent = 'Đã huỷ.';
+    document.getElementById('progressPct').textContent   = '';
+  }
+
+  document.getElementById('btnExport').disabled = results.length === 0;
+  renderResults();
+}
+
+/* ── Event bindings ── */
+document.getElementById('btnStart').addEventListener('click', handleStart);
+
+// Đếm URL realtime khi nhập
+document.getElementById('urlInput').addEventListener('input', () => {
+  const n = document.getElementById('urlInput').value
+    .split('\n').map(u => u.trim()).filter(Boolean).length;
+  document.getElementById('urlCounter').textContent =
+    n > 0 ? `${n} URL${n !== 1 ? 's' : ''}` : '0 URLs';
+});
+
+// Pause / Resume
+document.getElementById('btnPause').addEventListener('click', () => {
+  if (!isRunning) return;
+  isPaused = !isPaused;
+  document.getElementById('btnPause').textContent = isPaused ? '▶ Resume' : '⏸ Pause';
+  Logger.info(isPaused ? 'PAUSED' : 'RESUMED',
+    isPaused ? 'Tạm dừng xử lý' : 'Tiếp tục xử lý');
+});
+
+// Cancel
+document.getElementById('btnCancel').addEventListener('click', () => {
+  if (!isRunning) return;
+  isCancelled = true;
+  isPaused    = false;
+  Logger.warn('CANCEL', 'Người dùng huỷ quá trình');
+});
+
+// Load sample
+document.getElementById('btnSample').addEventListener('click', () => {
+  document.getElementById('urlInput').value = [
+    'https://www.wikipedia.org',
+    'https://www.bbc.com',
+    'https://www.nytimes.com',
+    'https://www.theguardian.com',
+    'https://www.mozilla.org',
+  ].join('\n');
+  document.getElementById('urlInput').dispatchEvent(new Event('input'));
+});
+
+// Export CSV
+document.getElementById('btnExport').addEventListener('click', exportCsv);
+
+// Toggle log panel — không trigger khi click nút bên trong
+document.getElementById('logToggle').addEventListener('click', e => {
+  if (document.getElementById('logControls').contains(e.target)) return;
+  const panel    = document.getElementById('logPanel');
+  const expanded = panel.classList.toggle('expanded');
+  document.getElementById('logArrow').textContent = expanded ? '▼' : '▲';
+});
+
+// Copy logs
+document.getElementById('btnCopyLogs').addEventListener('click', () => {
+  navigator.clipboard.writeText(Logger.toText())
+    .then(()  => Logger.info('COPY', 'Đã copy logs vào clipboard'))
+    .catch(()  => Logger.error('COPY', 'Không thể copy — trình duyệt từ chối quyền'));
+});
+
+// Clear logs
+document.getElementById('btnClearLogs').addEventListener('click', () => Logger.clear());
+</script>
+</body>
+</html>
