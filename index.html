@@ -585,12 +585,11 @@
 
 <script>
 /* ── Constants ── */
-const MAX_CONCURRENT = 5;
-const BATCH_DELAY_MS = 500;
-const TIMEOUT_MS     = 10000;
-const MAX_RETRIES    = 3;
-const MAX_URLS       = 500;
-const RETRY_429_MS   = 5000;
+const MAX_CONCURRENT   = 5;
+const BATCH_DELAY_MS   = 500;
+const TIMEOUT_MS       = 10000;
+const BATCH_TIMEOUT_MS = TIMEOUT_MS * 5; // timeout cho cả batch (server cần thêm thời gian retry)
+const MAX_URLS         = 500;
 
 const API_BASE = window.location.hostname === 'localhost'
   ? 'http://localhost:8000'
@@ -683,101 +682,27 @@ function setButtonState(running) {
   document.getElementById('urlInput') .disabled = running;
 }
 
-/* ── Fetch HTML qua proxy backend ── */
-async function fetchHtml(url, attempt = 0) {
+/* ── Gọi POST /api/check-alternate cho một batch URLs ── */
+async function checkBatch(urls) {
   const ctrl = new AbortController();
-  const tid  = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+  const tid  = setTimeout(() => ctrl.abort(), BATCH_TIMEOUT_MS);
   try {
-    const res = await fetch(
-      `${API_BASE}/fetch?url=${encodeURIComponent(url)}`,
-      { signal: ctrl.signal }
-    );
+    const res = await fetch(`${API_BASE}/api/check-alternate`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ urls }),
+      signal:  ctrl.signal,
+    });
     clearTimeout(tid);
-
-    if (res.status === 429) {
-      Logger.warn('RETRY', `${url} → 429, đợi ${RETRY_429_MS / 1000}s`);
-      await sleep(RETRY_429_MS);
-      if (attempt < MAX_RETRIES) return fetchHtml(url, attempt + 1);
-      throw new Error('429 Too Many Requests');
-    }
-    if (res.status >= 500 && attempt < MAX_RETRIES) {
-      Logger.warn('RETRY', `${url} → ${res.status}, lần ${attempt + 1}/${MAX_RETRIES}`);
-      await sleep(1000 * Math.pow(2, attempt));
-      return fetchHtml(url, attempt + 1);
-    }
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.text();
-
+    if (!res.ok) throw new Error(`Server lỗi HTTP ${res.status}`);
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'Server trả về lỗi không xác định');
+    return json.data;
   } catch (err) {
     clearTimeout(tid);
-    if (err.name === 'AbortError') {
-      if (attempt < MAX_RETRIES) {
-        Logger.warn('RETRY', `${url} timeout, lần ${attempt + 1}/${MAX_RETRIES}`);
-        await sleep(1000 * Math.pow(2, attempt));
-        return fetchHtml(url, attempt + 1);
-      }
-      throw new Error('Timeout sau 3 lần thử');
-    }
-    if (attempt < MAX_RETRIES && err.message !== '429 Too Many Requests') {
-      Logger.warn('RETRY', `${url} lỗi network, lần ${attempt + 1}/${MAX_RETRIES}`);
-      await sleep(1000 * Math.pow(2, attempt));
-      return fetchHtml(url, attempt + 1);
-    }
-    throw err;
-  }
-}
-
-/* ── Lấy giá trị một attribute từ chuỗi HTML attrs ── */
-function getAttr(attrs, name) {
-  const re = new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s/>]+))`, 'i');
-  const m  = attrs.match(re);
-  if (!m) return null;
-  return (m[1] !== undefined ? m[1] : m[2] !== undefined ? m[2] : m[3]).trim();
-}
-
-/* ── Parse alternate tags từ HTML của một URL ── */
-function parseAlternateTags(html, sourceUrl) {
-  const tags = [];
-  const headMatch = html.match(/<head[\s\S]*?<\/head>/i);
-  const head = headMatch ? headMatch[0] : html;
-
-  const linkRe = /<link\s([^>]+?)(?:\s*\/?>)/gi;
-  let m;
-  while ((m = linkRe.exec(head)) !== null) {
-    const attrs = m[1];
-    const rel   = getAttr(attrs, 'rel');
-    if (!rel || rel.toLowerCase() !== 'alternate') continue;
-
-    const href     = getAttr(attrs, 'href') || '';
-    const hreflang = getAttr(attrs, 'hreflang');
-    const media    = getAttr(attrs, 'media');
-
-    if (hreflang) {
-      const type = hreflang.toLowerCase() === 'x-default' ? 'x-default' : 'hreflang';
-      tags.push({ url: sourceUrl, type, value: hreflang, altUrl: href });
-    } else if (media) {
-      tags.push({ url: sourceUrl, type: 'media', value: media, altUrl: href });
-    }
-  }
-  return tags;
-}
-
-/* ── Kiểm tra một URL, lưu kết quả vào mảng results ── */
-async function checkUrl(url) {
-  const t0 = Date.now();
-  try {
-    const html = await fetchHtml(url);
-    const tags  = parseAlternateTags(html, url);
-    const ms    = Date.now() - t0;
-    Logger.info('REQUEST', `${url} → ${tags.length} alternate tags (${ms}ms)`);
-    if (tags.length === 0) {
-      results.push({ url, type: '—', value: '—', altUrl: '(không tìm thấy)' });
-    } else {
-      results.push(...tags);
-    }
-  } catch (err) {
-    Logger.error('FAILED', `${url} → ${err.message}`);
-    results.push({ url, type: 'ERROR', value: err.message, altUrl: '—' });
+    const msg = err.name === 'AbortError' ? 'Timeout khi gọi server' : err.message;
+    // Nếu cả batch lỗi, đánh dấu ERROR cho từng URL trong batch
+    return urls.map(url => ({ url, type: 'ERROR', value: msg, altUrl: '—' }));
   }
 }
 
@@ -788,8 +713,13 @@ async function processBatch(urls, batchSize = MAX_CONCURRENT) {
     while (isPaused && !isCancelled) await sleep(200);
     if (isCancelled) break;
 
-    const batch = urls.slice(i, i + batchSize);
-    await Promise.all(batch.map(u => checkUrl(u)));
+    const batch       = urls.slice(i, i + batchSize);
+    const batchNum    = Math.floor(i / batchSize) + 1;
+    Logger.info('BATCH', `Gửi batch ${batchNum}: ${batch.length} URLs → server`);
+
+    const batchResult = await checkBatch(batch);
+    results.push(...batchResult);
+
     updateProgress(i + batchSize, urls.length);
     renderResults();
     if (i + batchSize < urls.length) await sleep(BATCH_DELAY_MS);
